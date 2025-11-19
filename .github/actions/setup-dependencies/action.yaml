@@ -42,15 +42,15 @@ runs:
         path: |
           ~/.cache/go-build
           ~/go/pkg/mod
-        key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+        key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum','**/go.mod') }}
         restore-keys: |
           ${{ runner.os }}-go-
 
     - name: Get Go modules
-      shell: bash
       if: ${{ inputs.install_terraform == 'true' }}
+      shell: bash
       run: |
-        go env GOPATH
+        echo "GOMODCACHE: $(go env GOMODCACHE)"
         go mod download
 
     - name: Set up Python
@@ -59,11 +59,11 @@ runs:
       with:
         python-version: '3.12'
         cache: 'pip'
-        cache-dependency-path: ./${{ inputs.service_path }}/requirements-tests.txt
+        cache-dependency-path: ./${{ inputs.service_path }}/tests/requirements-tests.txt
 
     - name: Install dependencies
-      shell: bash
       if: ${{ inputs.install_python == 'true' }}
+      shell: bash
       run: |
         python -m pip install --upgrade pip
-        pip install -r ./${{ inputs.service_path }}/requirements.txt
+        pip install -r ./${{ inputs.service_path }}/tests/requirements.txt
