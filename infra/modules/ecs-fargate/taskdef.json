@@ -1,0 +1,44 @@
+[
+    {
+      "name": "app",
+      "image": "andrealves5/eloquent:REPLACE_TAG",
+      "essential": true,
+      "portMappings": [
+        { "containerPort": 8080, "protocol": "tcp" }
+      ],
+      "environment": [
+        { "name": "APP_VERSION", "value": "1.0.0" },
+        { "name": "ENVIRONMENT", "value": "production" }
+      ],
+      "logConfiguration": {
+        "logDriver": "awsfirelens",
+        "options": {
+          "Name": "cloudwatch",
+          "region": "us-east-1",
+          "log_group_name": "/ecs/my-task-family",
+          "log_stream_prefix": "app",
+          "auto_create_group": "true"
+        }
+      }
+    },
+
+    {
+      "name": "firelens",
+      "image": "amazon/aws-for-fluent-bit:latest",
+      "essential": true,
+      "firelensConfiguration": {
+        "type": "fluentbit",
+        "options": {
+          "enable-ecs-log-metadata": "true"
+        }
+      },
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/my-task-family-firelens",
+          "awslogs-region": "us-east-1",
+          "awslogs-stream-prefix": "firelens"
+        }
+      }
+    }
+  ]
