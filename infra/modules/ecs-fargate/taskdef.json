@@ -15,7 +15,7 @@
         "options": {
           "Name": "cloudwatch",
           "region": "us-east-1",
-          "log_group_name": "/ecs/my-task-family",
+          "log_group_name": "/ecs/prd-eloquent-api-svc",
           "log_stream_prefix": "app",
           "auto_create_group": "true"
         }
@@ -35,7 +35,7 @@
       "logConfiguration": {
         "logDriver": "awslogs",
         "options": {
-          "awslogs-group": "/ecs/my-task-family-firelens",
+          "awslogs-group": "/ecs/prd-eloquent-api-svc-firelens",
           "awslogs-region": "us-east-1",
           "awslogs-stream-prefix": "firelens"
         }
