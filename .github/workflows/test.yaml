@@ -37,6 +37,12 @@ jobs:
           install_terraform: ${{ startsWith(matrix.service, 'infra') }}
           install_python: ${{ startsWith(matrix.service, 'app') }}
           service_path: ${{ matrix.service }}
+        env:
+          environment: ${{ github.ref_name }}
+          aws-assume-role-arn: ${{ secrets.AWS_ASSUME_ROLE_ARN }}
+          aws-region: ${{ secrets.AWS_REGION }}
+          aws-statefile-s3-bucket: ${{ secrets.AWS_STATEFILE_S3_BUCKET }}
+          aws-lock-dynamodb-table: ${{ secrets.AWS_LOCK_DYNAMODB_TABLE }}
       - name: run tests
         working-directory: ${{ matrix.service }}
         run: |

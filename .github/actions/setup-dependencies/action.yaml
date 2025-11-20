@@ -41,10 +41,10 @@ runs:
       shell: bash
       run: |
         terraform init \
-          -backend-config="bucket=${{ inputs.aws-statefile-s3-bucket }}" \
+          -backend-config="bucket=${{ env.aws-statefile-s3-bucket }}" \
           -backend-config="key=${{ github.event.repository.name }}" \
-          -backend-config="region=${{ inputs.aws-region }}" \
-          -backend-config="dynamodb_table=${{ inputs.aws-lock-dynamodb-table }}"
+          -backend-config="region=${{ env.aws-region }}" \
+          -backend-config="dynamodb_table=${{ env.aws-lock-dynamodb-table }}"
 
     - name: Terraform Validate
       if: ${{ inputs.install_terraform == 'true' }}

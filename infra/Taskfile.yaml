@@ -7,16 +7,6 @@ vars:
 
 tasks:
 
-  build-container-image-ko:
-    desc: Build container image using ko
-    cmds:
-      - |
-        KO_DOCKER_REPO='{{.IMAGE_REPO}}' \
-          ko build \
-          --bare \
-          --tags={{.IMAGE_TAG}} \
-          --platform=all
-
   build-container-image:
     desc: Build container image
     cmds:
