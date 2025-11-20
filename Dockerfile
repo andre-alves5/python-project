@@ -1,4 +1,4 @@
-FROM python:3.11-slim AS builder
+FROM python:3.12-slim AS builder
 
 WORKDIR /app
 
@@ -11,11 +11,12 @@ FROM gcr.io/distroless/python3-debian12
 WORKDIR /app
 
 COPY --from=builder /install /usr/local
-COPY --from=builder /app /app
+COPY app/ .
+
+ENV PYTHONPATH=/usr/local/lib/python3.12/site-packages
 
 USER nonroot
 
 EXPOSE 8080
 
-ENTRYPOINT [ "/usr/local/bin/uvicorn" ]
-CMD [ "app:app", "--host", "0.0.0.0", "--port", "8080"]
+CMD ["-m", "uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8080"]
