@@ -34,7 +34,6 @@ jobs:
       - uses: ./.github/actions/setup-dependencies
         with:
           install_task: "true"
-          install_terraform: ${{ startsWith(matrix.service, 'infra') }}
           install_python: ${{ startsWith(matrix.service, 'app') }}
           service_path: ${{ matrix.service }}
       - name: run tests
