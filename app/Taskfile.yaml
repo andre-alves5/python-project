@@ -54,4 +54,4 @@ tasks:
   test:
     desc: run tests
     cmds:
-      - go test /${{ inputs.service_path }}/tests -v
+      - go test ./app -v
