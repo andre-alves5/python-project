@@ -7,7 +7,7 @@ resource "aws_ecs_service" "service" {
   platform_version = "LATEST"
 
   network_configuration {
-    subnets          = [for subnet in var.private-subnet-ids : subnet.id]
+    subnets          = var.private-subnet-ids
     security_groups  = [aws_security_group.ecs_sg.id]
     assign_public_ip = false
   }

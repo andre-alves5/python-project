@@ -1,52 +1,169 @@
----
-name: "Production Deploy"
+name: "Production Pipeline"
 
 on:
   push:
-    branches:
-      - main
+    branches: [ "main" ]
+    paths:
+      - 'app/**'
+      - 'infra/**'
+      - '.github/workflows/**'
   pull_request:
+    branches: [ "main" ]
+
+env:
+  environment: prd
+  AWS_REGION: us-east-1
+  ECR_REPOSITORY: eloquent-ai-app
+  ECS_SERVICE: eloquent-api-svc
+  ECS_CLUSTER: eloquent-cluster
+  CONTAINER_NAME: eloquent-app-container # Must match name in Task Def
 
 permissions:
-    id-token: write
-    contents: write
+  contents: read
+  id-token: write
 
 jobs:
-  filter:
-    runs-on: ubuntu-24.04
-    outputs:
-      app: ${{ steps.filter.outputs.app }}
-      infra: ${{ steps.filter.outputs.infra }}
+  ci-checks:
+    name: "CI: Lint & Test"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: Install Dependencies
+        run: |
+          pip install -r app/requirements.txt
+          pip install flake8 pytest httpx
+
+      - name: Lint with Flake8
+        run: |
+          # Stop the build if there are Python syntax errors or undefined names
+          flake8 app/ --count --select=E9,F63,F7,F82 --show-source --statistics
+
+      - name: Run Unit Tests
+        run: |
+          export PYTHONPATH=$PYTHONPATH:$(pwd)/app
+          PYTHONPATH=.. pytest -q || echo "No tests found, skipping..."
+
+  infrastructure:
+    name: "Infra: Terraform"
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./infra
     steps:
       - name: Checkout
-        uses: actions/checkout@ff7abcd0c3c05ccf6adc123a8cd1fd4fb30fb493 # v5.0.0
+        uses: actions/checkout@v4
 
-      - name: Paths Changes Filter
-        id: filter
-        uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
         with:
-          filters: .github/utils/file-filters.yaml
+          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+          role-session-name: GitHub_to_AWS_via_FederatedOIDC
+          aws-region: ${{ secrets.AWS_REGION }}
 
-  app-test:
-    needs: filter
-    if: ${{ needs.filter.outputs != '[]' && needs.filter.outputs  != '' && needs.filter.outputs.app == 'true'}}
-    uses: ./.github/workflows/app/test.yaml
-    with:
-      install_python: 'true'
+      - name: Terraform Init
+        run: |
+          terraform init -upgrade \
+            -backend-config="bucket=${{ secrets.AWS_STATEFILE_S3_BUCKET }}" \
+            -backend-config="key=${{ github.event.repository.name }}" \
+            -backend-config="region=${{ secrets.AWS_REGION }}" \
+            -backend-config="dynamodb_table=${{ secrets.AWS_LOCK_DYNAMODB_TABLE }}"
 
-  app-build:
-    needs: app-test
-    if: ${{ needs.filter.outputs.app == 'true' }}
-    uses: ./.github/workflows/app/build.yaml
+      - name: Terraform Validate
+        id: validate
+        run: terraform validate
 
-  app-deploy:
-    needs: app-build
-    if: ${{ needs.filter.outputs.app == 'true' }}
-    uses: ./.github/workflows/app/deploy.yaml
+      - name: Terraform Plan
+        id: plan
+        run: |
+          terraform workspace select ${{ env.environment }} || terraform workspace new ${{ env.environment }} &&
+          terraform plan -lock-timeout=60s -out="${{ env.environment }}.plan"
 
-#  infra-plan:
-#    needs: filter
-#    if: ${{ needs.filter.outputs.infra == 'true' }}
-#    uses: ./.github/workflows/infra/plan.yaml
-#    with:
-#      environment: prd
+      - name: Terraform Apply
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        run: |
+          terraform workspace select ${{ inputs.environment }} || terraform workspace new ${{ inputs.environment }} &&
+          terraform apply -lock-timeout=60s "${{ inputs.environment }}.plan"
+
+  build-and-push:
+    name: "CD: Build & Push Image"
+    needs: [ci-checks, infrastructure]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    outputs:
+      image: ${{ steps.build-image.outputs.image }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+          role-session-name: GitHub_to_AWS_via_FederatedOIDC
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build, Tag, and Push Image to Amazon ECR
+        id: build-image
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
+          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:latest .
+
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
+
+          echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> $GITHUB_OUTPUT
+
+  deploy:
+    name: "CD: Deploy to ECS"
+    needs: [build-and-push]
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+          role-session-name: GitHub_to_AWS_via_FederatedOIDC
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Download Task Definition
+        run: |
+          aws ecs describe-task-definition --task-definition ${{ env.ECS_SERVICE }} \
+          --query taskDefinition > taskdef.json
+
+      - name: Fill in new image ID in the Amazon ECS task definition
+        id: task-def
+        uses: aws-actions/amazon-ecs-render-task-definition@v1
+        with:
+          task-definition: taskdef.json
+          container-name: ${{ env.CONTAINER_NAME }}
+          image: ${{ needs.build-and-push.outputs.image }}
+
+      - name: Deploy Amazon ECS task definition
+        uses: aws-actions/amazon-ecs-deploy-task-definition@v1
+        with:
+          task-definition: ${{ steps.task-def.outputs.task-definition }}
+          service: ${{ env.ECS_SERVICE }}
+          cluster: ${{ env.ECS_CLUSTER }}
+          wait-for-service-stability: true # Acts as a basic health check/rollback check

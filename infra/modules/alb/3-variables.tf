@@ -15,10 +15,6 @@ variable "enable-deletion-protection" {
   type = bool
 }
 
-variable "certificate-arn" {
-  type = string
-}
-
 variable "vpc-id" {
   type = string
 }

@@ -6,5 +6,5 @@ resource "aws_ecs_task_definition" "this" {
   requires_compatibilities = ["FARGATE"]
   execution_role_arn       = aws_iam_role.task_execution.arn
   task_role_arn            = aws_iam_role.task_role.arn
-  container_definitions    = file("./taskdef.json")
+  container_definitions    = file("${path.module}/taskdef.json")
 }

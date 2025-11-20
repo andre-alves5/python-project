@@ -1,6 +1,5 @@
 variable "env" {
-  description = "Environment name."
-  type        = string
+  type = string
 }
 
 variable "capacity-providers" {
