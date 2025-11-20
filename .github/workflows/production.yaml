@@ -12,9 +12,6 @@ on:
 
 env:
   environment: prd
-  AWS_REGION: us-east-1
-  ECR_REPOSITORY: eloquent-ai-app
-  ECS_CLUSTER: eloquent-cluster
 
 permissions:
   contents: read
@@ -144,6 +141,10 @@ jobs:
           role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
           role-session-name: GitHub_to_AWS_via_FederatedOIDC
           aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Debug Output
+        run: |
+          echo "Received Image: ${{ needs.build-and-push.outputs.image }}"
 
       - name: Download Task Definition
         run: |
