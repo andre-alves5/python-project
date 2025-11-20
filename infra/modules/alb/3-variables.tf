@@ -15,7 +15,7 @@ variable "enable-deletion-protection" {
   type = bool
 }
 
-variable "certificate_arn" {
+variable "certificate-arn" {
   type = string
 }
 

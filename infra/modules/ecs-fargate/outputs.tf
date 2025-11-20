@@ -3,7 +3,8 @@ output "cluster_id" {
 }
 
 output "service_name" {
-  value = aws_ecs_service.service.name
+  description = "ECS service name"
+  value       = aws_ecs_service.service.name
 }
 
 output "task_definition_arn" {

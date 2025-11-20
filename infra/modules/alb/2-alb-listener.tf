@@ -1,10 +1,10 @@
 resource "aws_lb_listener" "https" {
-  count             = var.certificate_arn != "" ? 1 : 0
+  count             = var.certificate-arn != "" ? 1 : 0
   load_balancer_arn = aws_lb.this.arn
   port              = 443
   protocol          = "HTTPS"
   ssl_policy        = "ELBSecurityPolicy-2016-08"
-  certificate_arn   = var.certificate_arn
+  certificate_arn   = var.certificate-arn
 
   default_action {
     type             = "forward"
@@ -13,7 +13,7 @@ resource "aws_lb_listener" "https" {
 }
 
 resource "aws_lb_listener" "http_redirect" {
-  count             = var.certificate_arn != "" ? 1 : 0
+  count             = var.certificate-arn != "" ? 1 : 0
   load_balancer_arn = aws_lb.this.arn
   port              = 80
   protocol          = "HTTP"
@@ -30,7 +30,7 @@ resource "aws_lb_listener" "http_redirect" {
 }
 
 resource "aws_lb_listener" "http_forward" {
-  count             = var.certificate_arn == "" ? 1 : 0
+  count             = var.certificate-arn == "" ? 1 : 0
   load_balancer_arn = aws_lb.this.arn
   port              = 80
   protocol          = "HTTP"
