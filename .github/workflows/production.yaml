@@ -46,7 +46,8 @@ jobs:
 
       - name: Run Unit Tests
         run: |
-          export PYTHONPATH=$PYTHONPATH:$(pwd)/app
+          pwd
+          cd app/tests/
           PYTHONPATH=.. pytest -q || echo "No tests found, skipping..."
 
   infrastructure:
@@ -54,7 +55,7 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: ./infra
+        working-directory: infra
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -84,6 +85,7 @@ jobs:
       - name: Terraform Plan
         id: plan
         run: |
+          pwd
           terraform workspace select ${{ env.environment }} || terraform workspace new ${{ env.environment }} &&
           terraform plan -lock-timeout=60s -var-file="./envs/${{ env.environment }}/terraform.tfvars" -out="${{ env.environment }}.plan"
 
