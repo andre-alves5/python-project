@@ -35,9 +35,11 @@ jobs:
           aws-region: ${{ secrets.AWS_REGION }}
 
       - name: Terraform Init
-        run: terraform init
+        # Use -backend=false to prevent any backend configuration or state locking
+        run: terraform init -backend=false
         working-directory: infra/modules/${{ matrix.module }}/tests
 
       - name: Terraform Plan
-        run: terraform plan
+        # Use -lock=false as an extra precaution
+        run: terraform plan -lock=false
         working-directory: infra/modules/${{ matrix.module }}/tests

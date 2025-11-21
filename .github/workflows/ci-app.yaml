@@ -4,11 +4,7 @@ name: "CI: Application"
 on:
   workflow_call:
     secrets:
-      SONAR_ORGANIZATION:
-        required: true
-      SONAR_PROJECT_KEY:
-        required: true
-      SONAR_TOKEN:
+      SNYK_TOKEN:
         required: true
 
 permissions:
@@ -47,23 +43,17 @@ jobs:
             echo "No tests found, skipping."
           fi
 
-  sonarcloud-scan:
-    name: "SAST Scan with SonarCloud"
+  snyk-security-scan:
+    name: "Security Scan with Snyk"
     needs: [ci-checks]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
-        with:
-          # SonarCloud needs a full clone to analyze history
-          fetch-depth: 0
 
-      - name: SonarQube Scan
-        uses: sonarsource/sonarqube-scan-action@master
+      - name: Snyk SAST & SCA Scan
+        uses: snyk/actions/python-3.12@master
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
         with:
-          args: >
-            -Dsonar.organization=${{ secrets.SONAR_ORGANIZATION }}
-            -Dsonar.projectKey=${{ secrets.SONAR_PROJECT_KEY }}
+          args: --fail-on=all
