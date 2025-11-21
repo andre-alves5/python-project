@@ -32,3 +32,5 @@ container-port         = 8080
 launch-type            = "FARGATE"
 use_fargate_spot       = true
 ecr_repository_name    = "eloquent-ai-app"
+
+domain_name = "agallaghertech.online"

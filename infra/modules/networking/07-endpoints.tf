@@ -7,7 +7,7 @@ resource "aws_vpc_endpoint" "ecr_api" {
   vpc_endpoint_type   = "Interface"
   private_dns_enabled = true
   subnet_ids          = [for subnet in aws_subnet.private : subnet.id]
-  security_group_ids  = [aws_default_security_group.vpc_sg.id]
+  security_group_ids  = [aws_security_group.vpc_endpoints.id]
 
   tags = {
     Name = "${var.env}-${var.project}-ecr-api-endpoint"
@@ -20,7 +20,7 @@ resource "aws_vpc_endpoint" "ecr_dkr" {
   vpc_endpoint_type   = "Interface"
   private_dns_enabled = true
   subnet_ids          = [for subnet in aws_subnet.private : subnet.id]
-  security_group_ids  = [aws_default_security_group.vpc_sg.id]
+  security_group_ids  = [aws_security_group.vpc_endpoints.id]
 
   tags = {
     Name = "${var.env}-${var.project}-ecr-dkr-endpoint"
@@ -46,7 +46,7 @@ resource "aws_vpc_endpoint" "logs" {
   vpc_endpoint_type   = "Interface"
   private_dns_enabled = true
   subnet_ids          = [for subnet in aws_subnet.private : subnet.id]
-  security_group_ids  = [aws_default_security_group.vpc_sg.id]
+  security_group_ids  = [aws_security_group.vpc_endpoints.id]
 
   tags = {
     Name = "${var.env}-${var.project}-logs-endpoint"
