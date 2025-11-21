@@ -1,171 +1,64 @@
-name: "Production Pipeline"
+# .github/workflows/production.yaml
+name: "Production Orchestrator"
 
 on:
   push:
     branches: [ "main" ]
-    paths:
-      - 'app/**'
-      - 'infra/**'
-      - '.github/workflows/**'
   pull_request:
     branches: [ "main" ]
-
-env:
-  environment: prd
-  ECR_REPOSITORY: eloquent-ai-app
 
 permissions:
   contents: read
   id-token: write
 
 jobs:
-  ci-checks:
-    name: "CI: Lint & Test"
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-          cache: 'pip'
-
-      - name: Install Dependencies
-        run: |
-          pip install -r app/requirements.txt
-          pip install flake8 pytest "httpx==0.27.2"
-
-      - name: Lint with Flake8
-        run: |
-          # Stop the build if there are Python syntax errors or undefined names
-          flake8 app/ --count --select=E9,F63,F7,F82 --show-source --statistics
-
-      - name: Run Unit Tests
-        run: |
-          pwd
-          cd app/tests/
-          PYTHONPATH=.. pytest -q || echo "No tests found, skipping..."
-
-  infrastructure:
-    name: "Infra: Terraform"
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: infra
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
-
-      - name: Configure AWS Credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
-          role-session-name: GitHub_to_AWS_via_FederatedOIDC
-          aws-region: ${{ secrets.AWS_REGION }}
-
-      - name: Terraform Init
-        run: |
-          terraform init -upgrade \
-            -backend-config="bucket=${{ secrets.AWS_STATEFILE_S3_BUCKET }}" \
-            -backend-config="key=${{ github.event.repository.name }}" \
-            -backend-config="region=${{ secrets.AWS_REGION }}" \
-            -backend-config="dynamodb_table=${{ secrets.AWS_LOCK_DYNAMODB_TABLE }}"
-
-      - name: Terraform Validate
-        id: validate
-        run: terraform validate
-
-      - name: Terraform Plan
-        id: plan
-        run: |
-          pwd
-          terraform workspace select ${{ env.environment }} || terraform workspace new ${{ env.environment }} &&
-          terraform plan -lock-timeout=60s -var-file="./envs/${{ env.environment }}/terraform.tfvars" -out="${{ env.environment }}.plan"
-
-      - name: Terraform Apply
-        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-        run: |
-          terraform workspace select ${{ env.environment }} || terraform workspace new ${{ env.environment }} &&
-          terraform apply -lock-timeout=60s "${{ env.environment }}.plan"
-
-  build-and-push:
-    name: "CD: Build & Push Image"
-    needs: [ci-checks, infrastructure]
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+  changes:
+    name: "Detect Changes"
     runs-on: ubuntu-latest
     outputs:
-      image: ${{ steps.build-image.outputs.image }}
+      infra: ${{ steps.filter.outputs.infra }}
+      app: ${{ steps.filter.outputs.app }}
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Configure AWS Credentials
-        uses: aws-actions/configure-aws-credentials@v4
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
         with:
-          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
-          role-session-name: GitHub_to_AWS_via_FederatedOIDC
-          aws-region: ${{ secrets.AWS_REGION }}
+          filters: |
+            infra:
+              - 'infra/**'
+              - '.github/workflows/**'
+            app:
+              - 'app/**'
+              - '.github/workflows/**'
 
-      - name: Login to Amazon ECR
-        id: login-ecr
-        uses: aws-actions/amazon-ecr-login@v2
+  ci_app:
+    name: "CI: App"
+    if: needs.changes.outputs.app == 'true'
+    needs: [changes]
+    uses: ./.github/workflows/ci-app.yaml
 
-      - name: Build, Tag, and Push Image to Amazon ECR
-        id: build-image
-        env:
-          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-          ECR_REPOSITORY: eloquent-ai-app
-          IMAGE_TAG: ${{ github.sha }}
-        run: |
-          FULL_IMAGE="$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
+  ci_infra:
+    name: "CI: Infra"
+    if: needs.changes.outputs.infra == 'true'
+    needs: [changes]
+    uses: ./.github/workflows/ci-infra.yaml
 
-          docker build -t $FULL_IMAGE .
-          docker push $FULL_IMAGE
+  cd_infra:
+    name: "CD: Infra"
+    if: github.event_name == 'push' && needs.changes.outputs.infra == 'true'
+    needs: [changes, ci_infra]
+    uses: ./.github/workflows/cd-infra.yaml
+    with:
+      environment: "prd"
+    secrets: inherit
 
-          echo "image=$FULL_IMAGE" >> $GITHUB_OUTPUT
-
-  deploy:
-    name: "CD: Deploy to ECS"
-    needs: [build-and-push]
-    if: github.ref == 'refs/heads/main'
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Configure AWS Credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
-          role-session-name: GitHub_to_AWS_via_FederatedOIDC
-          aws-region: ${{ secrets.AWS_REGION }}
-
-      - name: Login to Amazon ECR
-        id: login-ecr
-        uses: aws-actions/amazon-ecr-login@v2
-
-      - name: Download Task Definition
-        run: |
-          aws ecs describe-task-definition --task-definition ${{ env.environment }}-task-definition \
-          --query taskDefinition > taskdef.json
-
-      - name: Render New Task Definition
-        id: task-def
-        uses: aws-actions/amazon-ecs-render-task-definition@v1
-        with:
-          task-definition: taskdef.json
-          container-name: ${{ env.environment }}-eloquent-app-container
-          image: ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ github.sha }}
-
-      - name: Deploy Amazon ECS task definition
-        uses: aws-actions/amazon-ecs-deploy-task-definition@v1
-        with:
-          task-definition: ${{ steps.task-def.outputs.task-definition }}
-          service: ${{ env.environment }}-eloquent-api-svc
-          cluster: ${{ env.environment }}-eloquent-cluster
-          wait-for-service-stability: true
+  cd_app:
+    name: "CD: App"
+    if: github.event_name == 'push' && needs.changes.outputs.app == 'true'
+    needs: [changes, ci_app, cd_infra] # Always wait for infra CD to finish
+    uses: ./.github/workflows/cd-app.yaml
+    with:
+      environment: "prd"
+      project_name: "eloquent"
+      ecr_repository: "eloquent-ai-app"
+    secrets: inherit

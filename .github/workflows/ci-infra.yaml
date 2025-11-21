@@ -1,0 +1,31 @@
+# .github/workflows/ci-infra.yaml
+name: "CI: Infrastructure"
+
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  test-terraform-modules:
+    name: "Test Terraform Modules"
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        module: ['networking', 'acm', 'ecr', 'alb', 'ecs-fargate']
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Terraform Init
+        run: terraform init
+        working-directory: infra/modules/${{ matrix.module }}/tests
+
+      - name: Terraform Plan
+        run: terraform plan
+        working-directory: infra/modules/${{ matrix.module }}/tests

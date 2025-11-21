@@ -5,11 +5,26 @@ import os
 app = FastAPI()
 
 
+def get_app_version():
+    """Reads the application version from the VERSION file."""
+    try:
+        with open("VERSION", "r") as f:
+            return f.read().strip()
+    except FileNotFoundError:
+        return "unknown"
+
+
+APP_VERSION = get_app_version()
+
+
 @app.get("/health")
 def health():
-    return JSONResponse(
-        content={"status": "healthy", "version": os.getenv("APP_VERSION", "1.0.0")}
-    )
+    return JSONResponse(content={"status": "healthy", "version": APP_VERSION})
+
+
+@app.get("/version")
+def version():
+    return JSONResponse(content={"version": APP_VERSION})
 
 
 @app.get("/api/hello")

@@ -1,5 +1,5 @@
 resource "aws_lb_target_group" "tg" {
-  name        = "${var.env}-tg"
+  name        = "${var.env}-${var.project}-tg"
   port        = var.container-port
   protocol    = "HTTP"
   vpc_id      = var.vpc-id
@@ -15,6 +15,6 @@ resource "aws_lb_target_group" "tg" {
   }
 
   tags = {
-    Name = "${var.env}-ecs-target-group"
+    Name = "${var.env}-${var.project}-ecs-target-group"
   }
 }

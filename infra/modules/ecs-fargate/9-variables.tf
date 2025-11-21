@@ -55,3 +55,14 @@ variable "private-subnet-ids" {
 variable "alb-sg-id" {
   type = string
 }
+
+variable "project" {
+  description = "The name of the project, used for resource naming."
+  type        = string
+}
+
+variable "use_fargate_spot" {
+  description = "Whether to use Fargate Spot for the ECS service."
+  type        = bool
+  default     = false
+}

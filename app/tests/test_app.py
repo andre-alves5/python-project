@@ -1,33 +1,48 @@
 import os
 
 
-def test_health_endpoint_default(client):
+def get_app_version():
+    """Helper to read the version file for tests."""
+    try:
+        with open("app/VERSION", "r") as f:
+            return f.read().strip()
+    except FileNotFoundError:
+        # In the test context, the path might be different.
+        with open("VERSION", "r") as f:
+            return f.read().strip()
+
+
+def test_health_endpoint(client):
     """
-    When no APP_VERSION set, /health should return default version "1.0.0"
+    The /health endpoint should return the version from the VERSION file.
     """
+    expected_version = get_app_version()
     resp = client.get("/health")
     assert resp.status_code == 200
     data = resp.json()
     assert data["status"] == "healthy"
-    assert "version" in data
-    assert data["version"] == "1.0.0"
+    assert data["version"] == expected_version
 
 
-def test_health_endpoint_with_env(client):
+def test_version_endpoint(client):
     """
-    When APP_VERSION env var is present, it should be reflected.
+    The /version endpoint should correctly return the version from the VERSION file.
     """
-    os.environ["APP_VERSION"] = "2.5.7-test"
-    resp = client.get("/health")
+    expected_version = get_app_version()
+    resp = client.get("/version")
     assert resp.status_code == 200
     data = resp.json()
-    assert data["version"] == "2.5.7-test"
+    assert data["version"] == expected_version
 
 
 def test_api_hello_default_environment(client):
     """
     Without ENVIRONMENT set, /api/hello should return environment 'unknown'
     """
+    # Ensure the environment variable is unset for this test
+    if "ENVIRONMENT" in os.environ:
+        del os.environ["ENVIRONMENT"]
+
     resp = client.get("/api/hello")
     assert resp.status_code == 200
     data = resp.json()
@@ -42,6 +57,8 @@ def test_api_hello_with_environment(client):
     assert resp.status_code == 200
     data = resp.json()
     assert data["environment"] == "ci-test"
+    # Clean up the environment variable
+    del os.environ["ENVIRONMENT"]
 
 
 def test_health_response_structure(client):

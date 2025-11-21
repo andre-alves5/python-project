@@ -9,7 +9,7 @@ resource "aws_route_table" "private" {
   }
 
   tags = {
-    Name = "${var.env}-private-${each.key}"
+    Name = "${var.env}-${var.project}-private-${each.key}"
   }
 }
 
@@ -22,7 +22,7 @@ resource "aws_route_table" "public" {
   }
 
   tags = {
-    Name = "${var.env}-public"
+    Name = "${var.env}-${var.project}-public"
   }
 }
 

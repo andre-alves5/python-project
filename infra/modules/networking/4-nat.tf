@@ -3,7 +3,7 @@ resource "aws_eip" "this" {
   domain   = "vpc"
 
   tags = {
-    Name = "${var.env}-eip-${each.key}"
+    Name = "${var.env}-${var.project}-eip-${each.key}"
   }
 }
 
@@ -14,7 +14,7 @@ resource "aws_nat_gateway" "this" {
   allocation_id = aws_eip.this[each.key].id
 
   tags = {
-    Name = "${var.env}-nat-${each.key}"
+    Name = "${var.env}-${var.project}-nat-${each.key}"
   }
 
   depends_on = [aws_internet_gateway.this]

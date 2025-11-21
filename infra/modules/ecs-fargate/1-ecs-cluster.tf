@@ -1,5 +1,5 @@
 resource "aws_ecs_cluster" "this" {
-  name = "${var.env}-eloquent-cluster"
+  name = "${var.env}-${var.project}-cluster"
 
   setting {
     name  = "containerInsights"
@@ -7,18 +7,18 @@ resource "aws_ecs_cluster" "this" {
   }
 
   tags = {
-    Name = "${var.env}-eloquent-cluster"
+    Name = "${var.env}-${var.project}-cluster"
   }
 }
 
 resource "aws_ecs_cluster_capacity_providers" "this" {
   cluster_name = aws_ecs_cluster.this.name
 
-  capacity_providers = var.capacity-providers
+  capacity_providers = compact(concat(var.capacity-providers, [var.use_fargate_spot ? "FARGATE_SPOT" : ""]))
 
   default_capacity_provider_strategy {
     base              = 1
     weight            = 100
-    capacity_provider = "FARGATE"
+    capacity_provider = var.use_fargate_spot ? "FARGATE_SPOT" : "FARGATE"
   }
 }

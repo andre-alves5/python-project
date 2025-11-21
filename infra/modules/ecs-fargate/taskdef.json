@@ -1,21 +1,21 @@
 [
     {
-      "name": "prd-eloquent-app-container",
+      "name": "${env}-${project}-app-container",
       "image": "789536878847.dkr.ecr.us-east-1.amazonaws.com/eloquent-ai-app:latest",
       "essential": true,
       "portMappings": [
-        { "containerPort": 8080, "protocol": "tcp" }
+        { "containerPort": ${container_port}, "protocol": "tcp" }
       ],
       "environment": [
         { "name": "APP_VERSION", "value": "1.0.0" },
-        { "name": "ENVIRONMENT", "value": "production" }
+        { "name": "ENVIRONMENT", "value": "${env}" }
       ],
       "logConfiguration": {
         "logDriver": "awsfirelens",
         "options": {
           "Name": "cloudwatch",
           "region": "us-east-1",
-          "log_group_name": "/ecs/prd-eloquent-api-svc",
+          "log_group_name": "/ecs/${env}-${project}-api-svc",
           "log_stream_prefix": "app",
           "auto_create_group": "true"
         }
@@ -35,7 +35,7 @@
       "logConfiguration": {
         "logDriver": "awslogs",
         "options": {
-          "awslogs-group": "/ecs/prd-eloquent-api-svc-firelens",
+          "awslogs-group": "/ecs/${env}-${project}-api-svc-firelens",
           "awslogs-region": "us-east-1",
           "awslogs-stream-prefix": "firelens"
         }

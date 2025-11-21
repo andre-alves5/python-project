@@ -1,0 +1,106 @@
+# .github/workflows/cd-app.yaml
+name: "CD: Application"
+
+on:
+  workflow_call:
+    inputs:
+      environment:
+        required: true
+        type: string
+      project_name:
+        required: true
+        type: string
+      ecr_repository:
+        required: true
+        type: string
+    secrets:
+      AWS_ROLE_TO_ASSUME:
+        required: true
+      AWS_REGION:
+        required: true
+
+jobs:
+  build-and-push:
+    name: "Build & Push Image"
+    runs-on: ubuntu-latest
+    outputs:
+      image: ${{ steps.build-image.outputs.image }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Read version from file
+        id: version
+        run: echo "APP_VERSION=$(cat app/VERSION)" >> $GITHUB_ENV
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+          role-session-name: GitHub_CD_App_Build
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build and Tag Image
+        id: build-image-tag
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        run: |
+          FULL_IMAGE="$ECR_REGISTRY/${{ inputs.ecr_repository }}:${{ env.APP_VERSION }}"
+          docker build -t $FULL_IMAGE .
+          echo "image_name=$FULL_IMAGE" >> $GITHUB_OUTPUT
+
+      - name: Scan Image with Trivy
+        uses: aquasecurity/trivy-action@0.5.1
+        with:
+          image-ref: ${{ steps.build-image-tag.outputs.image_name }}
+          format: 'table'
+          exit-code: '1'
+          ignore-unfixed: true
+          vuln-type: 'os,library'
+          severity: 'CRITICAL,HIGH'
+
+      - name: Push Image to Amazon ECR
+        id: build-image
+        run: |
+          docker push ${{ steps.build-image-tag.outputs.image_name }}
+          echo "image=${{ steps.build-image-tag.outputs.image_name }}" >> $GITHUB_OUTPUT
+
+  deploy:
+    name: "Deploy to ECS"
+    needs: [build-and-push]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+          role-session-name: GitHub_CD_App_Deploy
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Download Task Definition
+        run: |
+          aws ecs describe-task-definition --task-definition ${{ inputs.environment }}-${{ inputs.project_name }}-task-definition \
+          --query taskDefinition > taskdef.json
+
+      - name: Render New Task Definition
+        id: task-def
+        uses: aws-actions/amazon-ecs-render-task-definition@v1
+        with:
+          task-definition: taskdef.json
+          container-name: ${{ inputs.environment }}-${{ inputs.project_name }}-app-container
+          image: ${{ needs.build-and-push.outputs.image }}
+
+      - name: Deploy Amazon ECS task definition
+        uses: aws-actions/amazon-ecs-deploy-task-definition@v1
+        with:
+          task-definition: ${{ steps.task-def.outputs.task-definition }}
+          service: ${{ inputs.environment }}-${{ inputs.project_name }}-api-svc
+          cluster: ${{ inputs.environment }}-${{ inputs.project_name }}-cluster
+          wait-for-service-stability: true

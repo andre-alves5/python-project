@@ -1,5 +1,5 @@
 resource "aws_iam_role" "task_execution" {
-  name = "${var.env}-task-exec-role"
+  name = "${var.env}-${var.project}-task-exec-role"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17",
@@ -17,7 +17,7 @@ resource "aws_iam_role_policy_attachment" "task_exec_attach" {
 }
 
 resource "aws_iam_role" "task_role" {
-  name = "${var.env}-task-role"
+  name = "${var.env}-${var.project}-task-role"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17",
@@ -30,7 +30,7 @@ resource "aws_iam_role" "task_role" {
 }
 
 resource "aws_iam_policy" "task_secrets_policy" {
-  name = "${var.env}-task-secrets-policy"
+  name = "${var.env}-${var.project}-task-secrets-policy"
   policy = jsonencode({
     Version = "2012-10-17",
     Statement = [{

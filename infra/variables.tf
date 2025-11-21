@@ -4,6 +4,22 @@ variable "env" {
   type        = string
 }
 
+variable "domain_name" {
+  description = "The domain name to use for the application's SSL certificate."
+  type        = string
+}
+
+variable "project_name" {
+  description = "The name of the project, used as a prefix for all resources."
+  type        = string
+  default     = "eloquent"
+}
+
+variable "ecr_repository_name" {
+  description = "The name of the ECR repository to create for the application image."
+  type        = string
+}
+
 variable "vpc-cidr-block" {
   description = "The IP address range for the VPC in CIDR notation (e.g., 10.0.0.0/16)."
   type        = string
@@ -79,6 +95,12 @@ variable "target-cpu-utilization" {
   type        = number
 }
 
+variable "use_fargate_spot" {
+  description = "Whether to use Fargate Spot for the ECS service."
+  type        = bool
+  default     = false
+}
+
 #Load Balancer Variables
 variable "internal" {
   description = "Boolean flag to determine if the Load Balancer is internal (true) or internet-facing (false)."
@@ -93,4 +115,10 @@ variable "lb-type" {
 variable "enable-deletion-protection" {
   description = "If true, deletion of the load balancer will be disabled via the AWS API. Prevents accidental destruction."
   type        = bool
+}
+
+variable "log_bucket_name" {
+  description = "The name of the S3 bucket to store ALB access logs."
+  type        = string
+  default     = "alb-logs"
 }

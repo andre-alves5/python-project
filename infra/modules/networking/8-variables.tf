@@ -19,3 +19,8 @@ variable "public-subnets" {
     az   = string
   }))
 }
+
+variable "project" {
+  description = "The name of the project, used for resource naming."
+  type        = string
+}

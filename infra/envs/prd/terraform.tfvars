@@ -15,7 +15,7 @@ public-subnets = {
 }
 
 #ALB Values
-internal                   = "false"
+internal                   = false
 lb-type                    = "application"
 enable-deletion-protection = true
 
@@ -30,3 +30,5 @@ target-cpu-utilization = 70
 desired-count          = 1
 container-port         = 8080
 launch-type            = "FARGATE"
+use_fargate_spot       = true
+ecr_repository_name    = "eloquent-ai-app"

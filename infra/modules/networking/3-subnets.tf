@@ -6,7 +6,7 @@ resource "aws_subnet" "private" {
   cidr_block        = each.value.cidr
 
   tags = merge({
-    Name = "${var.env}-private-${each.key}"
+    Name = "${var.env}-${var.project}-private-${each.key}"
   })
 }
 
@@ -18,6 +18,6 @@ resource "aws_subnet" "public" {
   cidr_block        = each.value.cidr
 
   tags = merge({
-    Name = "${var.env}-public-${each.key}"
+    Name = "${var.env}-${var.project}-public-${each.key}"
   })
 }

@@ -1,0 +1,62 @@
+# .github/workflows/cd-infra.yaml
+name: "CD: Infrastructure"
+
+on:
+  workflow_call:
+    inputs:
+      environment:
+        required: true
+        type: string
+    secrets:
+      AWS_ROLE_TO_ASSUME:
+        required: true
+      AWS_REGION:
+        required: true
+      AWS_STATEFILE_S3_BUCKET:
+        required: true
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  infrastructure:
+    name: "Deploy Infrastructure"
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: infra
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+          role-session-name: GitHub_CD_Infra
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Terraform Init
+        run: |
+          terraform init -upgrade \
+            -backend-config="bucket=${{ secrets.AWS_STATEFILE_S3_BUCKET }}" \
+            -backend-config="key=${{ github.event.repository.name }}" \
+            -backend-config="region=${{ secrets.AWS_REGION }}" \
+            -backend-config="use_lockfile=true"
+
+      - name: Terraform Validate
+        run: terraform validate
+
+      - name: Terraform Plan
+        run: |
+          terraform workspace select ${{ inputs.environment }} || terraform workspace new ${{ inputs.environment }} &&
+          terraform plan -lock-timeout=60s -var-file="./envs/${{ inputs.environment }}/terraform.tfvars" -out="${{ inputs.environment }}.plan"
+
+      - name: Terraform Apply
+        run: |
+          terraform workspace select ${{ inputs.environment }} || terraform workspace new ${{ inputs.environment }} &&
+          terraform apply -lock-timeout=60s "${{ inputs.environment }}.plan"

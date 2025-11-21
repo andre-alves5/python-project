@@ -1,5 +1,5 @@
 resource "aws_ecs_service" "service" {
-  name             = "${var.env}-eloquent-api-svc"
+  name             = "${var.env}-${var.project}-api-svc"
   cluster          = aws_ecs_cluster.this.id
   task_definition  = aws_ecs_task_definition.this.arn
   desired_count    = var.desired-count
@@ -14,7 +14,7 @@ resource "aws_ecs_service" "service" {
 
   load_balancer {
     target_group_arn = aws_lb_target_group.tg.arn
-    container_name   = "${var.env}-eloquent-app-container"
+    container_name   = "${var.env}-${var.project}-app-container"
     container_port   = var.container-port
   }
 
@@ -24,12 +24,12 @@ resource "aws_ecs_service" "service" {
 }
 
 resource "aws_security_group" "ecs_sg" {
-  name        = "${var.env}-ecs-sg"
+  name        = "${var.env}-${var.project}-ecs-sg"
   description = "Security group for ECS service tasks"
   vpc_id      = var.vpc-id
 
   tags = {
-    Name = "${var.env}-ecs-sg"
+    Name = "${var.env}-${var.project}-ecs-sg"
   }
 
   ingress {
